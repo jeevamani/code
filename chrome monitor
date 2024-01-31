@@ -1,0 +1,165 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Automation;
+
+namespace urlfetch
+{
+    class Program
+    {
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+        static void Main()
+        {
+            while (true)
+            {
+                IntPtr activeWindowHandle = GetForegroundWindow();
+                uint processId;
+                GetWindowThreadProcessId(activeWindowHandle, out processId);
+
+                Process activeProcess = Process.GetProcessById((int)processId);
+
+                string processName = activeProcess.ProcessName.ToLower();
+
+                if (processName.Contains("chrome"))
+                {
+                    string chromeUrl = BrowserURLInfo("chrome");
+                    
+                    Console.WriteLine("Active Tab URL: " + chromeUrl);
+                }
+                else if (processName.Contains("msedge"))
+                {
+                    string edgeUrl = BrowserURLInfo("msedge");
+                    Console.WriteLine("Active Application: Microsoft Edge");
+                    Console.WriteLine("Active Tab URL: " + edgeUrl);
+                }
+                else
+                {
+                    Console.WriteLine("Active Application: " + activeProcess.ProcessName);
+                    Console.WriteLine("Unable to retrieve URL for this application.");
+                }
+
+                // Adjust the sleep duration based on your desired monitoring frequency
+                Thread.Sleep(1000); // Sleep for 1 second before checking again
+            }
+        }
+
+        internal static string BrowserURLInfo(string pross)
+        {
+            //DTO.ExecutiontimeDTO ET = new DTO.ExecutiontimeDTO();
+            //var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            string _resultURL = string.Empty;
+            string PropertyName = GetElementName(pross);
+            try
+            {
+                Process[] _Process = Process.GetProcessesByName(pross);
+                if (_Process != null && _Process.Length >= 0)
+                {
+                    foreach (Process proc in _Process)
+                    {
+                        if (proc.MainWindowHandle == IntPtr.Zero)
+                            continue;
+                        AutomationElement element = AutomationElement.FromHandle(proc.MainWindowHandle);
+                        if (element != null)
+                        {
+                            _resultURL = GetURLInfo(element, PropertyName);
+                            //_resultURL = GetBaseURL(_resultURL);
+                            break;
+                        }
+                    }
+                }
+                _Process = null;
+            }
+            catch (Exception)
+            {
+            }
+            //watch.Stop();
+            //ET.BURL = watch.ElapsedMilliseconds;
+            //ET.O1 = _resultURL;
+            //ET.O2 = 1;
+            //string etJson = Newtonsoft.Json.JsonConvert.SerializeObject(ET);
+            //Logs.DBConsLogTest(etJson);
+            return _resultURL;
+        }
+
+        private static string GetURLInfo(AutomationElement element, string PropertyName)
+        {
+            string _resultURL = string.Empty;
+            try
+            {
+                var nameCondition = new PropertyCondition(AutomationElement.NameProperty, PropertyName);
+                var controlCondition = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit);
+                var condition = new AndCondition(nameCondition, controlCondition);
+                AutomationElement edit = element.FindFirst(TreeScope.Subtree, condition);
+                if (edit != null)
+                {
+                    _resultURL = ((ValuePattern)edit.GetCurrentPattern(ValuePattern.Pattern)).Current.Value as string;
+
+                    if (string.IsNullOrEmpty(_resultURL))
+                    {
+                        _resultURL = (string)edit.GetCurrentPropertyValue(ValuePatternIdentifiers.ValueProperty);
+                        if (string.IsNullOrEmpty(_resultURL))
+                        {
+                            _resultURL = ((TextPattern)edit.GetCurrentPattern(TextPattern.Pattern)).DocumentRange.GetText(int.MaxValue);
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+            element = null;
+            return _resultURL;
+        }
+
+
+        private static string GetElementName(string Pross)
+        {
+            if (Pross.ToLower() == "chrome")
+            {
+                return "Address and search bar";
+            }
+            else if (Pross.ToLower() == "msedge")
+            {
+                return "Address and search bar";
+            }
+            else if (Pross.ToLower() == "applicationframehost")
+            {
+                return "addressEditBox";
+            }
+            else if (Pross.ToLower() == "firefox")
+            {
+                return "Search with Google or enter address";
+            }
+            else if (Pross.ToLower() == "iexplore")
+            {
+                return "ReBarWindow32";
+            }
+            else
+            {
+                return "Address and search bar";
+            }
+        }
+
+
+
+
+        private static string GetActiveTabUrl(string processName)
+        {
+            // Implementation to get active tab URL similar to previous responses
+            // ...
+            return "URL not found";
+        }
+    }
+}
